@@ -1,52 +1,28 @@
-import { NextRequest, NextResponse } from "next/server";
-import { ContactTopic } from "@prisma/client";
-import { db } from "@/lib/db";
-import { contactSubmissionSchema } from "@/lib/validators";
+import { NextResponse } from "next/server";
+import { PrismaClient } from "@prisma/client";
 
-const topicMap: Record<string, ContactTopic> = {
-  "Store question": "STORE_QUESTION",
-  "Order issue": "ORDER_ISSUE",
-  Rewards: "REWARDS",
-  Careers: "CAREERS",
-  Accessibility: "ACCESSIBILITY",
-  "Press inquiry": "PRESS_INQUIRY",
-  Meetup: "MEETUP",
-  Newsletter: "NEWSLETTER",
-  Store: "STORE",
-};
+const prisma = new PrismaClient();
 
-export async function POST(req: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const json = await req.json();
-    const parsed = contactSubmissionSchema.safeParse(json);
+    const body = await request.json();
 
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Invalid request body.", details: parsed.error.flatten() },
-        { status: 400 }
-      );
-    }
-
-    const data = parsed.data;
-    const mappedTopic = topicMap[data.topic];
-
-    const created = await db.contactSubmission.create({
+    const submission = await prisma.contactSubmission.create({
       data: {
-        fullName: data.fullName,
-        email: data.email,
-        phone: data.phone || null,
-        topic: mappedTopic,
-        preferredStore: data.preferredStore || null,
-        message: data.message,
+        fullName: body.fullName,
+        email: body.email,
+        phone: body.phone ?? null,
+        topic: body.topic,
+        preferredStore: body.preferredStore ?? null,
+        message: body.message,
       },
     });
 
-    return NextResponse.json(
-      { success: true, submissionId: created.id, message: "Contact request submitted." },
-      { status: 201 }
-    );
+    return NextResponse.json({ success: true, id: submission.id });
   } catch (error) {
-    console.error("POST /api/contact error:", error);
-    return NextResponse.json({ error: "Failed to submit contact request." }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: "Unable to submit contact form" },
+      { status: 500 }
+    );
   }
 }
